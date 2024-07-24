@@ -1,0 +1,55 @@
+
+FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.22-openshift-4.17 AS gobuilder
+
+WORKDIR /src
+
+COPY . .
+
+RUN go version
+
+RUN mkdir /tmp/out
+#ENV GOPROXY=off
+#ENV CGO_ENABLED=0
+
+# TODO: check konflux-provided vars
+ENV GOFLAGS="-mod=mod"
+#ENV LDFLAGS="\
+#-X istio.io/istio/pkg/version.buildVersion=${CI_ISTIO_UPSTREAM_VERSION_SANITIZED}-${CI_VERSION}.tp.1 \
+#-X istio.io/istio/pkg/version.buildGitRevision=${CI_ISTIO_UPSTREAM_COMMIT} \
+#-X istio.io/istio/pkg/version.buildTag=${CI_ISTIO_UPSTREAM_VERSION_SANITIZED}-${CI_VERSION}.tp.1 \
+#-X istio.io/istio/pkg/version.buildStatus=Clean \
+#-s -w"
+
+RUN go build \
+   -o /tmp/out ./cni/cmd/istio-cni ./cni/cmd/install-cni
+
+RUN cp ./tools/packaging/common/envoy_bootstrap.json /tmp/out/envoy_bootstrap.json
+
+###########################################################################
+#@follow_tag(registry.redhat.io/ubi9/ubi-minimal:latest)
+# TODO: why .access. ?
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest 
+
+# TODO: we should unify the format we use for versions, in render_vars.in we use a `v` prefix
+ENV ISTIO_VERSION="1.22-konflux"
+
+LABEL com.redhat.component="openshift-istio-cni-container"
+LABEL name="openshift-service-mesh/istio-cni-rhel9"
+LABEL version="${ISTIO_VERSION}.tp.1"
+LABEL istio_version="${ISTIO_VERSION}-tp.1"
+LABEL summary="Red Hat Service Mesh CNI plugin installer OpenShift container image"
+LABEL description="Red Hat Service Mesh CNI plugin installer OpenShift container image"
+LABEL io.k8s.display-name="Red Hat Service Mesh CNI plugin installer"
+LABEL io.openshift.tags="istio"
+LABEL io.openshift.expose-services=""
+LABEL maintainer="Istio Feedback <istio-feedback@redhat.com>"
+
+ENV container="oci"
+
+RUN mkdir -p /opt/cni/bin
+
+COPY --from=gobuilder /tmp/out/install-cni /usr/local/bin
+COPY --from=gobuilder /tmp/out/istio-cni /opt/cni/bin
+
+ENTRYPOINT ["/usr/local/bin/install-cni"]
+
