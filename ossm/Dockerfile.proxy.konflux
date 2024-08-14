@@ -29,9 +29,10 @@ RUN mkdir /tmp/out
 #-X istio.io/pkg/version.buildStatus=Clean \
 #-s -w"
 
+# TODO: remove when enabling hermetic
 ENV GOFLAGS="-mod=mod"
 
-RUN go build -mod=vendor -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \n') ${LDFLAGS:-}" \
+RUN go build -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \n') ${LDFLAGS:-}" \
        -tags strictfipsruntime \
        -o /tmp/out ./pilot/cmd/pilot-agent
 
