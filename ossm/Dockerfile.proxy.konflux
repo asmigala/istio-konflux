@@ -1,0 +1,88 @@
+###########################################################################
+# GO BUILD      1.21                                                      #
+# https://brewweb.engineering.redhat.com/brew/packageinfo?packageID=70135 #
+###########################################################################
+
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_9_golang_1.21)
+FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.22-openshift-4.17 AS gobuilder
+
+#COPY $REMOTE_SOURCES $REMOTE_SOURCES_DIR
+COPY . .
+
+###########################################################################
+# Pilot agent
+###########################################################################
+
+
+#WORKDIR $REMOTE_SOURCES_DIR/istio/app
+
+RUN go version
+
+RUN mkdir /tmp/out
+#ENV GOPROXY=off
+#ENV CGO_ENABLED=1
+#ENV GOEXPERIMENT=strictfipsruntime
+#ENV LDFLAGS="\
+#-X istio.io/pkg/version.buildVersion=OSSM_${CI_VERSION}-1 \
+#-X istio.io/pkg/version.buildGitRevision=${CI_ISTIO_UPSTREAM_COMMIT} \
+#-X istio.io/pkg/version.buildTag=${CI_VERSION} \
+#-X istio.io/pkg/version.buildStatus=Clean \
+#-s -w"
+
+ENV GOFLAGS="-mod=mod"
+
+RUN go build -mod=vendor -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \n') ${LDFLAGS:-}" \
+       -tags strictfipsruntime \
+       -o /tmp/out ./pilot/cmd/pilot-agent
+
+
+RUN cp ./tools/packaging/common/envoy_bootstrap.json /tmp/out/envoy_bootstrap.json
+
+###########################################################################
+# Proxy
+###########################################################################
+
+# this will be automatically updated by konflux
+FROM https://quay.io/redhat-user-workloads/asmigala-tenant/ossm-3/envoy@sha256:334f6333f06c0371545ec83e97771877ab59fc1572ae46b4543aa3ec0db01067 AS proxy_builder
+
+###########################################################################
+# Final Image
+###########################################################################
+
+FROM registry.access.redhat.com/ubi9-minimal:9.4
+
+LABEL com.redhat.component="openshift-istio-proxyv2-container"
+LABEL name="openshift-service-mesh-tech-preview/istio-proxyv2-rhel9"
+LABEL version="${CI_VERSION}"
+LABEL istio_version="1.21.0"
+LABEL summary="Red Hat Service Mesh Proxy V2 OpenShift container image"
+LABEL description="Red Hat Service Mesh Proxy V2 OpenShift container image"
+LABEL io.k8s.display-name="Red Hat Service Mesh Proxy V2"
+LABEL io.openshift.tags="istio"
+LABEL maintainer="Istio Feedback <istio-feedback@redhat.com>"
+LABEL io.openshift.expose-services=""
+
+ENV container="oci"
+ENV ISTIO_VERSION="1.21.0"
+
+# Environment variables indicating this proxy's version/capabilities as opaque string
+ENV ISTIO_META_ISTIO_PROXY_VERSION="1.21.0"
+# Environment variable indicating the exact proxy sha - for debugging or version-specific configs
+ENV ISTIO_META_ISTIO_PROXY_SHA $ { CI_PROXY_UPSTREAM_COMMIT}
+# Environment variable indicating the exact build, for debugging
+ENV ISTIO_META_ISTIO_VERSION="1.21.0"
+
+COPY --from=gobuilder /tmp/out/pilot-agent /usr/local/bin/pilot-agent
+COPY --from=gobuilder /tmp/out/envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY --from=proxy_builder /tmp/out/envoy /usr/local/bin/envoy
+
+# TODO: why is this needed when we don't have it in 2.5???
+# iptables are not installed by default
+RUN microdnf -y install iptables
+
+RUN mkdir -p /etc/istio/proxy && \
+    chmod g+w /etc/istio/proxy
+
+# The pilot-agent will bootstrap Envoy.
+ENTRYPOINT ["/usr/local/bin/pilot-agent"]
+
