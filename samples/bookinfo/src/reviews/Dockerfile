@@ -23,7 +23,7 @@ RUN gradle build
 
 # Use library image once https://github.com/OpenLiberty/ci.docker/issues/241
 # is fixed
-FROM open-liberty:24.0.0.1-kernel-slim-java17-openj9
+FROM open-liberty:24.0.0.7-kernel-slim-java17-openj9
 
 ENV SERVERDIRNAME reviews
 
