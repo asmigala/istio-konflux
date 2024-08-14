@@ -44,7 +44,7 @@ RUN cp ./tools/packaging/common/envoy_bootstrap.json /tmp/out/envoy_bootstrap.js
 ###########################################################################
 
 # this will be automatically updated by konflux
-FROM https://quay.io/redhat-user-workloads/asmigala-tenant/ossm-3/envoy@sha256:334f6333f06c0371545ec83e97771877ab59fc1572ae46b4543aa3ec0db01067 AS proxy_builder
+FROM quay.io/redhat-user-workloads/asmigala-tenant/ossm-3/envoy@sha256:334f6333f06c0371545ec83e97771877ab59fc1572ae46b4543aa3ec0db01067 AS proxy_builder
 
 ###########################################################################
 # Final Image
