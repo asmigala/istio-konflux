@@ -24,7 +24,7 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/asmigala-tenant/ossm-3/istio-proxy:{{revision}}
   - name: dockerfile
-    value: ossm/Dockerfile.envoy.konflux
+    value: ossm/Dockerfile.proxy.konflux
   - name: path-context
     value: .
   pipelineSpec:
