@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 # build a jwt-server binary using the golang container
-FROM golang:1.19 as builder
+FROM golang:1.23 as builder
 WORKDIR /go/src/istio.io/jwt-server/
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o jwt-server main.go
