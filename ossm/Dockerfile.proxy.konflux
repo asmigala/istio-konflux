@@ -50,7 +50,7 @@ FROM quay.io/redhat-user-workloads/asmigala-tenant/ossm-3/envoy@sha256:57ec6744e
 # Final Image
 ###########################################################################
 
-FROM registry.access.redhat.com/ubi9-minimal:9.4
+FROM registry.access.redhat.com/ubi9-minimal:9.4-1227.1726694542
 
 LABEL com.redhat.component="openshift-istio-proxyv2-container"
 LABEL name="openshift-service-mesh-tech-preview/istio-proxyv2-rhel9"
